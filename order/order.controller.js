@@ -12,10 +12,25 @@ const Book = require('../book/book.model');
 //     }
 // };
 async function createOrder(req, res) {
-    console.log(req.body.books);
+    //console.log(req.body.books);
+    if (!req.body.books || !Array.isArray(req.body.books) || req.body.books.length === 0) {
+        return res.status(400).json({ message: "Falta el parámetro 'books' o está vacío" });
+    }
+    if (!req.body.address) {
+        return res.status(400).json({ message: "Falta el parámetro 'address'" });
+    }
     const booksRequested = req.body.books; // Esto debería ser un array de IDs de libros.
     try {
-        const books = await Promise.all(booksRequested.map(bookId => Book.findById(bookId).select('uploader')));
+        // Seleccionar los libros con sus respectivos precios y uploaders
+        const books = await Promise.all(
+            booksRequested.map(bookId => 
+                Book.findById(bookId).select('uploader price status')
+            )
+        );
+        const allAvailable = books.every(book => book.status === 'available');
+        if (!allAvailable) {
+            return res.status(400).json({ message: "Todos los libros deben estar disponibles para realizar un pedido" });
+        }
 
         const uploader = books[0].uploader;
         const hasDifferentUploader = books.some(book => book.uploader.toString() !== uploader.toString());
@@ -31,17 +46,23 @@ async function createOrder(req, res) {
         const booksWithOwners = books.map(book => ({
             book: book._id,
             owner: book.uploader,
+            price: book.price,  // Asumiendo que cada libro tiene un campo `price`
             status: 'reserved'
         }));
+
+        // Calcular el total sumando los precios de todos los libros en la orden
+        const total = booksWithOwners.reduce((acc, book) => acc + book.price, 0);
 
         // Actualizar el estado de los libros a 'reserved'
         await Promise.all(booksWithOwners.map(book => Book.findByIdAndUpdate(book.book, { status: 'reserved' })));
 
-        // Llamar a la acción de crear con los datos preparados
+        // Crear la orden con el total calculado
         const newOrder = await create({
             user: req.userId,
             books: booksWithOwners,
-            status: req.body.status
+            status: req.body.status,
+            address: req.body.address,
+            total: total  // Añadir el total calculado a la orden
         });
 
         res.status(201).json(newOrder);
@@ -70,10 +91,13 @@ async function getMyOrders(req, res) {
             user: order.user._id,
             books: order.books.map(book => ({
                 book: book.book._id,
-                owner: book.owner
+                owner: book.owner,
+                price: book.price
             })),
             status: order.status,
-            creationDate: order.creationDate
+            total: order.total,
+            creationDate: order.creationDate,
+            enabled: enabled
         }));
         const totalOrders = orders.length;
         
@@ -81,8 +105,7 @@ async function getMyOrders(req, res) {
         // Concatenar el campo adicional al final del array de órdenes
         const responseObj = {
             orders: formattedOrders,
-            totalOrders: totalOrders,
-            enabled: enabled
+            totalOrders: totalOrders
         };
 
         res.status(200).json(responseObj);
@@ -113,10 +136,13 @@ async function getOrdersToMe(req, res) {
             user: order.user._id,
             books: order.books.map(book => ({
                 book: book.book._id,
-                owner: book.owner
+                owner: book.owner,
+                price: book.price
             })),
             status: order.status,
-            creationDate: order.creationDate
+            total: order.total,
+            creationDate: order.creationDate,
+            enabled: enabled
         }));
         const totalOrders = orders.length;
 
@@ -124,7 +150,6 @@ async function getOrdersToMe(req, res) {
         const responseObj = {
             orders: formattedOrders,
             totalOrders: totalOrders,
-            enabled: enabled
         };
 
         res.status(200).json(responseObj);

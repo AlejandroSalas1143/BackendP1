@@ -5,9 +5,12 @@ const orderSchema = new mongoose.Schema({
   books: [{
     _id: false,
     book: { type: mongoose.Schema.Types.ObjectId, ref: 'Book' },
-    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }
+    owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    price: { type: Number, required: true }
   }],
   status: { type: String, enum: ['in progress', 'completed', 'cancelled'], default: 'in progress' },
+  address: { type: String, required: true },
+  total : {type: Number, required: true},
   creationDate: {type: Date,default: Date.now},
   enabled: { type: Boolean, default: true }
 });

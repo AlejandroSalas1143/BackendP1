@@ -1,25 +1,35 @@
-// authController.js
-
+const argon2 = require('argon2');
 const { register, login } = require('./auth.actions');
+const User = require('../user/user.model');
 
 const registerUser = async (req, res) => {
   const { name, email, password } = req.body;
-  try {
-    const message = await register(name, email, password);
-    res.status(201).json({ message });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  const hashedPassword = await argon2.hash(password);
+  const result = await register(name, email, hashedPassword);
+
+  if (result.error) {
+    return res.status(409).json({ message: result.error });
   }
+  res.status(201).json({ message: result.message });
 };
 
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
-  try {
-    const token = await login(email, password);
-    res.status(200).json({ token });
-  } catch (error) {
-    res.status(401).json({ message: error.message });
+  const user = await User.findOne({ email });
+  if (!user) {
+    return res.status(401).json({ message: 'Credenciales incorrectas' });
   }
+
+  const isValidPassword = await argon2.verify(user.password, password);
+  if (!isValidPassword) {
+    return res.status(401).json({ message: 'Credenciales incorrectas' });
+  }
+
+  const result = await login(user);
+  if (result.error) {
+    return res.status(500).json({ message: result.error });
+  }
+  res.status(200).json({ token: result.token });
 };
 
 module.exports = { registerUser, loginUser };
