@@ -1,4 +1,5 @@
 const { findUserById, updateUserById, deleteUserById } = require('./user.actions');  // Asegúrate de que la ruta es correcta.
+const argon2 = require('argon2');
 
 async function getUser(req, res) {
     try {
@@ -23,7 +24,11 @@ async function updateUser(req, res) {
     }
 
     try {
-        const updatedUser = await updateUserById(req.userId, { name, email, password });
+        let hashedPassword;
+        if (password) {
+            hashedPassword = await argon2.hash(password);
+        }
+        const updatedUser = await updateUserById(req.userId, { name, email, password: hashedPassword });
         if (!updatedUser) {
             return res.status(404).json({ message: "User not found" });
         }
