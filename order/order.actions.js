@@ -17,4 +17,10 @@ async function updateStatus(orderId, status){
     return await Order.findByIdAndUpdate(orderId, { status }, { new: true });
 };
 
-module.exports = { create, findAll, updateStatus, findById };
+async function softDeleteOrder(orderId){
+    return await Order.findByIdAndUpdate(orderId, { enabled: false }, { new: true });
+}
+
+//const updatedOrder = await Order.findByIdAndUpdate(_id, { enabled: false }, { new: true });
+
+module.exports = { create, findAll, updateStatus, findById, softDeleteOrder };

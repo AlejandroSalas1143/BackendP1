@@ -1,5 +1,5 @@
 const Order = require('./order.model');
-const { create, findAll, updateStatus, findById } = require('./order.actions');
+const { create, findAll, updateStatus, findById, softDeleteOrder } = require('./order.actions');
 const Book = require('../book/book.model');
 
 // async function createOrder(req, res){
@@ -53,8 +53,12 @@ async function createOrder(req, res) {
 
 async function getMyOrders(req, res) {
     try {
-        // Filtrar las órdenes para obtener solo aquellas del usuario autenticado
-        const orders = await findAll({ user: req.userId });
+        // Extraer 'enabled' de los parámetros de consulta, por defecto es 'true'
+        const enabled = req.query.enabled !== undefined ? req.query.enabled === 'true' : true;
+
+        // Filtrar las órdenes para obtener solo aquellas del usuario autenticado y que cumplan con el criterio 'enabled'
+        const orders = await findAll({ user: req.userId, enabled: enabled });
+
         if (orders.length === 0) {
             // Si no hay órdenes, envía un mensaje indicando que no hay pedidos realizados
             return res.status(404).json({ message: "No ha realizado ningún pedido" });
@@ -72,11 +76,13 @@ async function getMyOrders(req, res) {
             creationDate: order.creationDate
         }));
         const totalOrders = orders.length;
+        
 
         // Concatenar el campo adicional al final del array de órdenes
         const responseObj = {
             orders: formattedOrders,
-            totalOrders: totalOrders
+            totalOrders: totalOrders,
+            enabled: enabled
         };
 
         res.status(200).json(responseObj);
@@ -87,10 +93,17 @@ async function getMyOrders(req, res) {
 
 async function getOrdersToMe(req, res) {
     try {
-        // Filtrar las órdenes para obtener solo aquellas del usuario autenticado
-        const orders = await findAll({ "books.owner": req.userId });
+        // Extraer 'enabled' de los parámetros de consulta, por defecto es 'true'
+        const enabled = req.query.enabled !== undefined ? req.query.enabled === 'true' : true;
+
+        // Filtrar las órdenes para obtener solo aquellas donde el usuario autenticado es el dueño del libro y según el estado de 'enabled'
+        const orders = await findAll({
+            "books.owner": req.userId,
+            "enabled": enabled
+        });
+
         if (orders.length === 0) {
-            // Si no hay órdenes, envía un mensaje indicando que no hay pedidos realizados
+            // Si no hay órdenes, envía un mensaje indicando que no hay pedidos recibidos
             return res.status(404).json({ message: "No ha recibido ningún pedido" });
         }
 
@@ -110,7 +123,8 @@ async function getOrdersToMe(req, res) {
         // Concatenar el campo adicional al final del array de órdenes
         const responseObj = {
             orders: formattedOrders,
-            totalOrders: totalOrders
+            totalOrders: totalOrders,
+            enabled: enabled
         };
 
         res.status(200).json(responseObj);
@@ -127,9 +141,10 @@ async function updateOrderStatus(req, res) {
     try {
         const order = await findById(_id);
 
+
         //console.log(order);
-        if (!order) {
-            return res.status(404).json({ message: "La orden no existe" });
+        if (!order || !order.enabled) {
+            return res.status(404).json({ message: "La orden no existe o no está habilitada" });
         }
         if (req.route.path === '/MyOrders') {
             // Verificar si el usuario autenticado es el propietario de la orden
@@ -182,4 +197,43 @@ async function updateOrderStatus(req, res) {
     }
 };
 
-module.exports = { createOrder, getMyOrders, updateOrderStatus, getOrdersToMe };
+async function deleteOrder(req, res) {
+    const { _id } = req.params; // Asumiendo que el ID de la orden viene como parámetro de la ruta
+
+    try {
+        const order = await findById(_id);
+
+        // Verificar si la orden existe y si está habilitada
+        if (!order || !order.enabled) {
+            return res.status(404).json({ message: "La orden no existe o ya fue eliminada" });
+        }
+
+        // Verificar el estado de la orden
+        if (order.status !== 'completed' && order.status !== 'cancelled') {
+            return res.status(400).json({ message: "No se puede eliminar una orden en progreso" });
+        }
+
+        // Verificar si el usuario autenticado es el dueño de la orden
+        if (req.route.path === '/MyOrders') {
+            if (order.user.toString() !== req.userId) {
+                return res.status(403).json({ message: "No tiene permiso para eliminar esta orden" });
+            }
+        }
+
+        // Verificar si el usuario autenticado es el propietario de algún libro en la orden
+        if (req.route.path === '/OrdersReceived') {
+            const isBookOwner = order.books.some(book => book.owner.toString() === req.userId);
+            if (!isBookOwner) {
+                return res.status(403).json({ message: "No tiene permiso para eliminar esta orden" });
+            }
+        }
+
+        // Marcar la orden como no habilitada
+        const softDeletedOrder = await softDeleteOrder(_id);
+        //const updatedOrder = await Order.findByIdAndUpdate(_id, { enabled: false }, { new: true });
+        res.status(200).json({ message: "Orden eliminada con éxito", order: softDeletedOrder });
+    } catch (error) {
+        res.status(500).json({ message: "Error al eliminar la orden", error });
+    }
+}
+module.exports = { createOrder, getMyOrders, updateOrderStatus, getOrdersToMe, deleteOrder };
