@@ -1,5 +1,4 @@
-// user.actions.js
-const User = require('./user.model');  // Asegúrate de que la ruta es correcta.
+const User = require('./user.model');
 
 async function findUserById(userId){
     return await User.findOne({_id: userId, enabled: true}).select('-password -__v');
@@ -11,11 +10,9 @@ async function updateUserById(userId, updates){
     if (!user) {
         return null;
     }
-
-    // Actualiza los campos permitidos
     user.name = updates.name || user.name;
     user.email = updates.email || user.email;
-    user.password = updates.password || user.password;  // Considera el hashing de la contraseña aquí
+    user.password = updates.password || user.password; 
 
     await user.save();
     return user;

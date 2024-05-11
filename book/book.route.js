@@ -1,5 +1,3 @@
-//Book.route.js
-
 const express = require('express')
 const router = express.Router();
 const { readBookConFiltros, createBook, updateBook, deleteBookHandler, getAvailableBooks, getMyBooks  } = require("./book.controller");
@@ -8,20 +6,20 @@ const verifyToken = require("../auth/auth.jwt.js");
 
 async function GetBooks(req, res) {
     try {
-        // llamada a controlador con los filtros
-        const resultadosBusqueda = await readBookConFiltros(req.query);
+        const resultadosBusqueda = await readBookConFiltros(req.params, req.query);
 
-        res.status(200).json({
-            ...resultadosBusqueda
-        })
+        if (Array.isArray(resultadosBusqueda) && resultadosBusqueda.length === 0) {
+            return res.status(404).json({ msg: "No se encontraron libros con los criterios especificados." });
+        }
+
+        res.status(200).json(resultadosBusqueda);
     } catch (e) {
-        res.status(500).json({ msg: "" })
+        res.status(500).json({ msg: "Error al recuperar los libros", error: e.message });
     }
 }
 
 async function PostBook(req, res) {
     try {
-        // llamada a controlador con los datos
         req.body.uploader = req.userId;
         await createBook(req.body);
 
@@ -36,10 +34,8 @@ async function PostBook(req, res) {
 
 async function PatchBooks(req, res) {
     try {
-        // Asumir que bookId viene como parámetro de URL
         const bookId = req.params.bookId;
 
-        // Pasar req y res directamente a updateBook
         await updateBook(req, res);
     } catch (e) {
         respondWithError(res, e);
@@ -49,7 +45,6 @@ async function PatchBooks(req, res) {
 
 async function DeleteBooks(req, res) {
     try {
-        // llamada a controlador con los datos
         const id = req.params.id;
         await deleteBookHandler(req, res);
 
@@ -58,9 +53,9 @@ async function DeleteBooks(req, res) {
     }
 }
 
-router.get("/", GetBooks);
-router.get('/available-books', verifyToken, getAvailableBooks);
-router.get('/MyBooks', verifyToken, getMyBooks);
+router.get("/AllBooks/:bookId?", GetBooks);
+router.get('/available-books/:bookId?', verifyToken, getAvailableBooks);
+router.get('/MyBooks/:bookId?', verifyToken, getMyBooks);
 router.post("/", verifyToken, PostBook);
 router.patch("/:bookId", verifyToken, PatchBooks);
 router.delete("/:id", verifyToken, DeleteBooks);

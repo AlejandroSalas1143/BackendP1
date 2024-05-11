@@ -6,8 +6,6 @@ async function getBookMongo(filtros) {
 
     return {
         resultados: BooksFiltrados,
-        // paginaMax: cantidadBooks / 20,
-        // paginaActual: 1,
         cantidadBooks: cantidadBooks
     };
 };
@@ -24,12 +22,10 @@ async function updateBookMongo(id, cambios) {
     return resultado
 };
 
-// Acción para obtener un libro por ID
 async function findBookById(bookId){
     return await Book.findById(bookId);
 };
 
-// Acción para actualizar un libro por ID
 async function updateBookById(bookId, bookUpdates){
     return await Book.findByIdAndUpdate(bookId, bookUpdates, { new: true });
 };
