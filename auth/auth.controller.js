@@ -16,8 +16,8 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
-  if (!user) {
-    return res.status(401).json({ message: 'Credenciales incorrectas' });
+  if (!user || !user.enabled) {
+    return res.status(401).json({ message: 'Credenciales incorrectas o usuario no habilitado' });
   }
 
   const isValidPassword = await argon2.verify(user.password, password);

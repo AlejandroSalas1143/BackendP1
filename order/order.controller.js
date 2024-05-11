@@ -2,15 +2,6 @@ const Order = require('./order.model');
 const { create, findAll, updateStatus, findById, softDeleteOrder } = require('./order.actions');
 const Book = require('../book/book.model');
 
-// async function createOrder(req, res){
-//     const { user, books, status } = req.body;
-//     try {
-//         const newOrder = await Order.create({ user, books, status });
-//         res.status(201).json(newOrder);
-//     } catch (error) {
-//         res.status(400).json({ message: "Error creating order", error });
-//     }
-// };
 async function createOrder(req, res) {
     //console.log(req.body.books);
     if (!req.body.books || !Array.isArray(req.body.books) || req.body.books.length === 0) {
@@ -19,7 +10,7 @@ async function createOrder(req, res) {
     if (!req.body.address) {
         return res.status(400).json({ message: "Falta el parámetro 'address'" });
     }
-    const booksRequested = req.body.books; // Esto debería ser un array de IDs de libros.
+    const booksRequested = req.body.books; 
     try {
         // Seleccionar los libros con sus respectivos precios y uploaders
         const books = await Promise.all(
@@ -46,7 +37,7 @@ async function createOrder(req, res) {
         const booksWithOwners = books.map(book => ({
             book: book._id,
             owner: book.uploader,
-            price: book.price,  // Asumiendo que cada libro tiene un campo `price`
+            price: book.price,
             status: 'reserved'
         }));
 
@@ -223,7 +214,7 @@ async function updateOrderStatus(req, res) {
 };
 
 async function deleteOrder(req, res) {
-    const { _id } = req.params; // Asumiendo que el ID de la orden viene como parámetro de la ruta
+    const { _id } = req.params;
 
     try {
         const order = await findById(_id);

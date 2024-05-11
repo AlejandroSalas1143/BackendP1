@@ -2,7 +2,7 @@
 const User = require('./user.model');  // Asegúrate de que la ruta es correcta.
 
 async function findUserById(userId){
-    return await User.findById(userId).select('-password -__v');
+    return await User.findOne({_id: userId, enabled: true}).select('-password -__v');
 };
 
 async function updateUserById(userId, updates){
@@ -21,4 +21,8 @@ async function updateUserById(userId, updates){
     return user;
 };
 
-module.exports = { findUserById, updateUserById }
+async function deleteUserById(userId) {
+    const updatedUser = await User.findByIdAndUpdate(userId, { enabled: false }, { new: true });
+    return updatedUser;
+}
+module.exports = { findUserById, updateUserById, deleteUserById }
